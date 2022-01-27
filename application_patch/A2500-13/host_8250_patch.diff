@@ -1,0 +1,17 @@
+diff --git a/drivers/tty/serial/8250/8250_port.c b/drivers/tty/serial/8250/8250_port.c
+index b0af13074..ca59822c8 100644
+--- a/drivers/tty/serial/8250/8250_port.c
++++ b/drivers/tty/serial/8250/8250_port.c
+@@ -1915,8 +1915,11 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
+ 	}
+ 	serial8250_modem_status(up);
+ 	if ((!up->dma || up->dma->tx_err) && (status & UART_LSR_THRE) &&
+-		(up->ier & UART_IER_THRI))
++		(up->ier & UART_IER_THRI)) {
++		uint8_t dummy = serial_port_in(port, UART_IIR);
++		(void)(dummy);
+ 		serial8250_tx_chars(up);
++	}
+ 
+ 	uart_unlock_and_check_sysrq(port, flags);
+ 	return 1;
