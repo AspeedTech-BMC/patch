@@ -1,0 +1,32 @@
+From d67d0c452ff038794bae7ed9c887fb66453a94a6 Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Mon, 28 Mar 2022 14:57:03 +0800
+Subject: [PATCH 3/3] pcie: Remove the reset assert from probe function.
+
+Because PCIe RC/EP reset short together, so the driver can't assert the
+reset after BMC reboot which will lead to x86 RC can't find the Ast2600
+EP.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: Ic0f018a2bdbecdfdcfdeebc82976c2efcf010e16
+---
+ drivers/pci/controller/pcie-aspeed.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/pci/controller/pcie-aspeed.c b/drivers/pci/controller/pcie-aspeed.c
+index 736f432bc560..eefa7c63f5cb 100644
+--- a/drivers/pci/controller/pcie-aspeed.c
++++ b/drivers/pci/controller/pcie-aspeed.c
+@@ -694,9 +694,6 @@ static void aspeed_pcie_port_init(struct aspeed_pcie *pcie)
+ {
+ 	u32 link_sts = 0;
+ 
+-	//reset rc bridge
+-	reset_control_assert(pcie->phy_rst);
+-	ndelay(300);
+ 	//plda init
+ 	regmap_write(pcie->pciephy, ASPEED_PCIE_LOCK, PCIE_UNLOCK);
+ //	regmap_write(pcie->pciephy, ASPEED_PCIE_CLASS_CODE, PCIE_CFG_CLASS_CODE(0x60000) | PCIE_CFG_REV_ID(4));
+-- 
+2.25.1
+
