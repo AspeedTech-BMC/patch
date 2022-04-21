@@ -1,0 +1,61 @@
+From 88508a4be1f7439cccbed1a5f213165d74bc879d Mon Sep 17 00:00:00 2001
+From: Chia-Wei Wang <chiawei_wang@aspeedtech.com>
+Date: Thu, 14 Apr 2022 11:19:09 +0800
+Subject: [PATCH] soc/aspeed: pcc: SW workaround for AP note A2600-xx
+
+A SW workaround to prevent PCC from responding erroneous eSPI
+response (Non-Fatal-Error, NFE) to eSPI master on debug code
+snooping.
+
+Note that it is for AST2600 A3 only.
+
+Signed-off-by: Chia-Wei Wang <chiawei_wang@aspeedtech.com>
+Change-Id: I8e15fab912c891248867ec012453e029a37156f2
+---
+ drivers/soc/aspeed/aspeed-lpc-pcc.c | 30 +++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/drivers/soc/aspeed/aspeed-lpc-pcc.c b/drivers/soc/aspeed/aspeed-lpc-pcc.c
+index 86a5f631a0b4..8884e74b2126 100644
+--- a/drivers/soc/aspeed/aspeed-lpc-pcc.c
++++ b/drivers/soc/aspeed/aspeed-lpc-pcc.c
+@@ -364,6 +364,36 @@ static int aspeed_pcc_enable(struct aspeed_pcc *pcc, struct device *dev)
+ {
+ 	int rc;
+ 
++	/*
++	 * AST2600 A3 only
++	 *
++	 * SW workaround to prevent generating Non-Fatal-Error (NFE)
++	 * eSPI response when PCC is used for port I/O byte snooping
++	 * over eSPI.
++	 */
++#define SNPWADR	0x90
++#define HICR6	0x84
++#define HICRB	0x100
++	struct device_node *np;
++
++	/* 1. abort PCC if snoop driver is enabled */
++	np = of_find_compatible_node(NULL, NULL, "aspeed,ast2600-lpc-snoop");
++	if (np) {
++		if (of_device_is_available(np)) {
++			dev_err(dev, "PCC workaround should be applied with snoop disabled\n");
++			return -EPERM;
++		}
++	}
++
++	/* 2. set SNPWADR of snoop device */
++	regmap_write(pcc->regmap, SNPWADR, pcc->port | ((pcc->port + 2) << 16));
++
++	/* 3. set HICRB[15:14]=11b to enable ACCEPT response for SNPWADR */
++	regmap_update_bits(pcc->regmap, HICRB, BIT(14) | BIT(15), BIT(14) | BIT(15));
++
++	/* 4. set HICR6[19] to extend SNPWADR to 2x range */
++	regmap_update_bits(pcc->regmap, HICR6, BIT(19), BIT(19));
++
+ 	if (pcc->dma_mode) {
+ 		/* map reserved memory or allocate a new one for DMA use */
+ 		if (pcc->dma.static_mem) {
+-- 
+2.25.1
+

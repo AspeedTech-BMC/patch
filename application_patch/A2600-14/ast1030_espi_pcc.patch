@@ -1,0 +1,51 @@
+From 245df684e18ab7e654e8935534e2073b2ab27dcf Mon Sep 17 00:00:00 2001
+From: Chia-Wei Wang <chiawei_wang@aspeedtech.com>
+Date: Thu, 14 Apr 2022 15:00:09 +0800
+Subject: [PATCH] drivers/misc/aspeed: pcc: SW workaround to avoid eSPI NFE response
+
+A SW workaround to prevent PCC from responding erroneous eSPI
+response (Non-Fatal-Error, NFE) to eSPI master on debug code
+snooping.
+
+Note that it is for AST1030 A1 only.
+
+Signed-off-by: Chia-Wei Wang <chiawei_wang@aspeedtech.com>
+Change-Id: Ie89126a168404d1b5983ec48b12310962a1fc8e9
+---
+
+diff --git a/drivers/misc/aspeed/pcc_aspeed.c b/drivers/misc/aspeed/pcc_aspeed.c
+index 41f1109..c1e5171 100644
+--- a/drivers/misc/aspeed/pcc_aspeed.c
++++ b/drivers/misc/aspeed/pcc_aspeed.c
+@@ -259,6 +259,31 @@
+ 		reg |= PCCR0_EN_RX_OVR_INT | PCCR0_EN_RX_TMOUT_INT | PCCR0_EN_RX_AVAIL_INT;
+ 	}
+ 
++	/*
++	 * AST1030 A1 only
++	 * SW workaround to prevent generating Non-Fatal-Error (NFE)
++	 * eSPI response when PCC is used for port I/O byte snooping
++	 * over eSPI.
++	 */
++#define SNPWADR	0x90
++#define HICR6	0x84
++#define HICRB	0x100
++
++	/* 1. abort PCC if snoop driver is enabled */
++	if (DT_HAS_COMPAT_STATUS_OKAY(aspeed_snoop)) {
++		LOG_ERR("PCC workaround should be applied with snoop disabled\n");
++		return -EPERM;
++	}
++
++	/* 2. set SNPWADR of snoop device */
++	LPC_WR(cfg->addr | ((cfg->addr + 2) << 16), SNPWADR);
++
++	/* 3. set HICRB[15:14]=11b to enable ACCEPT response for SNPWADR */
++	LPC_WR(LPC_RD(HICRB) | BIT(14) | BIT(15), HICRB);
++
++	/* 4. set HICR6[19] to extend SNPWADR to 2x range */
++	LPC_WR(LPC_RD(HICR6) | BIT(19), HICR6);
++
+ 	reg |= PCCR0_EN;
+ 	LPC_WR(reg, PCCR0);
+ 
