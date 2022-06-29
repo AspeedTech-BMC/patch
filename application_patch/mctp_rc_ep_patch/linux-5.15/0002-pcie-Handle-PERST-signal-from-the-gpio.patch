@@ -1,50 +1,81 @@
-From dfea77a7cdf89ce0e938d47d6049d124f254d3f6 Mon Sep 17 00:00:00 2001
+From cc6adc6b0fa7711e77165ea6b42f30b1aaab4817 Mon Sep 17 00:00:00 2001
 From: ryan_chen <ryan_chen@aspeedtech.com>
 Date: Mon, 7 Mar 2022 10:10:09 +0800
-Subject: [PATCH 2/3] pcie: Handle PERST signal from the gpio irq.
+Subject: [PATCH 2/2] pcie: Handle PERST signal from the gpio.
 
-This patch will use the gpio to connect with the EP PERST. When the gpio
-sense the GPIO falling edge irq the driver will execute the below
-procedure to fix the EP/RC mctp issue:
+This patch will use the two gpio to act as EP-PERST(input) and
+RC-PERST(output).
+EP-PERST(input): When this gpio sense the GPIO falling edge irq the
+patch will execute the below procedure to fix the EP/RC mctp issue:
 1. Remove the devices on the RC bus
-2. Toggle the RC-PERST to reset the PCIe EP and PCIe RC
+2. Toggle the SSPRST# to reset the PCIe EP and PCIe RC
 3. Rescan the devices on the RC bus
+RC-PERST(output): When the BMC reboot the patch will toggle the gpio to
+reset the devices on it.
+In addition, this patch will remove the toggle of pcie rc perst from the
+pciecfg driver to avoid reset the EP when BMC reboot.
 
 The topology for MCTP EP/RC work at the same time:
-                         AST2600
-+------+  PERST out +---------------+
-|x86 RC|----------->|GPIO(3.3v)     |
++------+            +---------------+
+|x86 RC+----------->|GPIO(3.3v)     |
 +------+            |               |
-         +--------->|PERST#         |
+         +----------+PERST#         |
          |          |               |
          |          |               |
          +--------->|SSPRST#        |
++------+            |               |
+|  EP  |<-----------+GPIO(3.3v)     |
++------+            |               |
                     +---------------+
 
 Signed-off-by: ryan_chen <ryan_chen@aspeedtech.com>
 Change-Id: I1663c40228e1d8481ddc9268800535f45994efc5
 ---
- arch/arm/boot/dts/aspeed-ast2600-evb.dts |  1 +
- drivers/pci/controller/pcie-aspeed.c     | 96 ++++++++++++++++++++++++
- 2 files changed, 97 insertions(+)
+ arch/arm/boot/dts/aspeed-ast2600-evb.dts |   2 +
+ drivers/pci/controller/aspeed_pciecfg.c  |  11 ---
+ drivers/pci/controller/pcie-aspeed.c     | 101 +++++++++++++++++++++++
+ 3 files changed, 103 insertions(+), 11 deletions(-)
 
 diff --git a/arch/arm/boot/dts/aspeed-ast2600-evb.dts b/arch/arm/boot/dts/aspeed-ast2600-evb.dts
-index 5e976474d9f8..62234929ef17 100644
+index e7ce4f86f4e1..1365f13178a5 100644
 --- a/arch/arm/boot/dts/aspeed-ast2600-evb.dts
 +++ b/arch/arm/boot/dts/aspeed-ast2600-evb.dts
-@@ -828,6 +828,7 @@
+@@ -794,6 +794,8 @@ &pciecfg {
  };
  
  &pcie1 {
-+	perst-gpios = <&gpio0 ASPEED_GPIO(B, 0) GPIO_ACTIVE_HIGH>;
++	perst-ep-in-gpios = <&gpio0 ASPEED_GPIO(B, 0) GPIO_ACTIVE_HIGH>;
++	perst-rc-out-gpios = <&gpio0 ASPEED_GPIO(B, 1) GPIO_ACTIVE_HIGH>;
  	status = "okay";
  };
  
+diff --git a/drivers/pci/controller/aspeed_pciecfg.c b/drivers/pci/controller/aspeed_pciecfg.c
+index 7ac821eb55a5..06dd34ef7f0c 100644
+--- a/drivers/pci/controller/aspeed_pciecfg.c
++++ b/drivers/pci/controller/aspeed_pciecfg.c
+@@ -30,17 +30,6 @@ static const struct of_device_id aspeed_pciecfg_of_match[] = {
+ static void aspeed_pciecfg_init(struct aspeed_pciecfg *pciecfg)
+ {
+ 	reset_control_assert(pciecfg->rst);
+-
+-	if (pciecfg->rc_low_rst) {
+-		reset_control_deassert(pciecfg->rc_low_rst);
+-		reset_control_assert(pciecfg->rc_low_rst);
+-	}
+-
+-	if (pciecfg->rc_high_rst) {
+-		reset_control_deassert(pciecfg->rc_high_rst);
+-		reset_control_assert(pciecfg->rc_high_rst);
+-	}
+-
+ 	mdelay(1);
+ 	reset_control_deassert(pciecfg->rst);
+ 
 diff --git a/drivers/pci/controller/pcie-aspeed.c b/drivers/pci/controller/pcie-aspeed.c
-index 5ea8d772d7a7..4f27c671345c 100644
+index 92b09c291c31..4e456cb02aee 100644
 --- a/drivers/pci/controller/pcie-aspeed.c
 +++ b/drivers/pci/controller/pcie-aspeed.c
-@@ -18,6 +18,10 @@
+@@ -17,6 +17,10 @@
  #include <linux/pci.h>
  #include <linux/regmap.h>
  #include <linux/reset.h>
@@ -53,18 +84,33 @@ index 5ea8d772d7a7..4f27c671345c 100644
 +#include <linux/workqueue.h>
 +#include <linux/gpio/consumer.h>
  
- #include "../pci.h"
- 
-@@ -112,6 +116,8 @@ struct aspeed_pcie {
+ /*	PCI Host Controller registers */
+ #define ASPEED_PCIE_CLASS_CODE		0x04
+@@ -106,6 +110,9 @@ struct aspeed_pcie {
+ 	struct irq_domain *msi_domain;
  	struct mutex lock;
- 	int link;
  	int hotplug_event;
-+	struct gpio_desc *pe_rst;
++	struct gpio_desc *perst_ep_in;
++	struct gpio_desc *perst_rc_out;
 +	struct delayed_work rst_dwork;
  	DECLARE_BITMAP(msi_irq_in_use, MAX_MSI_HOST_IRQS);
  };
  
-@@ -854,6 +860,82 @@ static ssize_t hotplug_store(struct device *dev,
+@@ -694,6 +701,13 @@ static void aspeed_pcie_port_init(struct aspeed_pcie *pcie)
+ #else
+ 	regmap_write(pcie->pciephy, ASPEED_PCIE_GLOBAL, ROOT_COMPLEX_ID(0x3));
+ #endif
++	/* Toggle the gpio to reset the devices on RC bus */
++	if (pcie->domain) {
++		pcie->perst_rc_out = devm_gpiod_get(pcie->dev, "perst-rc-out",
++						    GPIOD_OUT_LOW);
++		mdelay(100);
++		gpiod_set_value(pcie->perst_rc_out, 1);
++	}
+ 
+ 	reset_control_deassert(pcie->phy_rst);
+ 	mdelay(500);
+@@ -794,6 +808,79 @@ static ssize_t hotplug_store(struct device *dev,
  
  static DEVICE_ATTR_WO(hotplug);
  
@@ -121,13 +167,10 @@ index 5ea8d772d7a7..4f27c671345c 100644
 +
 +
 +	regmap_read(pcie->pciephy, ASPEED_PCIE_LINK, &link_sts);
-+	if (link_sts & PCIE_LINK_STS) {
-+		pcie->link = 1;
++	if (link_sts & PCIE_LINK_STS)
 +		dev_info(pcie->dev, "PCIE- Link up\n");
-+	} else {
++	else
 +		dev_info(pcie->dev, "PCIE- Link down\n");
-+		pcie->link = 0;
-+	}
 +
 +	pci_rescan_bus(host->bus);
 +	pci_unlock_rescan_remove();
@@ -147,16 +190,16 @@ index 5ea8d772d7a7..4f27c671345c 100644
  static int aspeed_pcie_probe(struct platform_device *pdev)
  {
  	struct device *dev = &pdev->dev;
-@@ -889,6 +971,20 @@ static int aspeed_pcie_probe(struct platform_device *pdev)
+@@ -825,6 +912,20 @@ static int aspeed_pcie_probe(struct platform_device *pdev)
  		return err;
  	}
  
 +	if (pcie->domain) {
-+		printk("pcie->dev_domain %d \n", pcie->domain);
-+		pcie->pe_rst = devm_gpiod_get(pcie->dev, "perst", GPIOD_IN);
-+		gpiod_set_debounce(pcie->pe_rst, 100);
-+		irq_set_irq_type(gpiod_to_irq(pcie->pe_rst), IRQ_TYPE_EDGE_FALLING);
-+		err = devm_request_irq(pcie->dev, gpiod_to_irq(pcie->pe_rst),
++		dev_info(&pdev->dev, "pcie->dev_domain %d\n", pcie->domain);
++		pcie->perst_ep_in = devm_gpiod_get(pcie->dev, "perst-ep-in", GPIOD_IN);
++		gpiod_set_debounce(pcie->perst_ep_in, 100);
++		irq_set_irq_type(gpiod_to_irq(pcie->perst_ep_in), IRQ_TYPE_EDGE_FALLING);
++		err = devm_request_irq(pcie->dev, gpiod_to_irq(pcie->perst_ep_in),
 +					   pcie_rst_irq_handler, IRQF_SHARED,
 +					   "PERST monitor", pcie);
 +		if (err) {
