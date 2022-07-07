@@ -1,0 +1,64 @@
+From 391dc4e23caaa957c2e0e6ee36c20820cc88d0af Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Tue, 5 Jul 2022 17:03:52 +0800
+Subject: [PATCH 3/3] soc: aspeed: mctp: rc: Polling the RX_CMD_RECEIVE_INT.
+
+Polling the RX_CMD_RECEIVE_INT to ensure rx_tasklet can find the data.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: I4517b6bd8a06f061006663cbd1972906e1d28579
+---
+ drivers/soc/aspeed/aspeed-mctp.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/aspeed/aspeed-mctp.c b/drivers/soc/aspeed/aspeed-mctp.c
+index c79072755056..e94e0c048de3 100644
+--- a/drivers/soc/aspeed/aspeed-mctp.c
++++ b/drivers/soc/aspeed/aspeed-mctp.c
+@@ -1098,6 +1098,7 @@ static ssize_t aspeed_mctp_read(struct file *file, char __user *buf,
+ 	struct aspeed_mctp *priv = client->priv;
+ 	struct mctp_pcie_packet *rx_packet;
+ 	u32 mctp_ctrl;
++	u32 mctp_int_sts;
+ 
+ 	if (count < PCIE_MCTP_MIN_PACKET_SIZE)
+ 		return -EINVAL;
+@@ -1109,7 +1110,13 @@ static ssize_t aspeed_mctp_read(struct file *file, char __user *buf,
+ 		regmap_read(priv->map, ASPEED_MCTP_CTRL, &mctp_ctrl);
+ 		if (!(mctp_ctrl & RX_CMD_READY))
+ 			priv->rx.stopped = true;
+-		tasklet_hi_schedule(&priv->rx.tasklet);
++		/* Polling the RX_CMD_RECEIVE_INT to ensure rx_tasklet can find the data */
++		regmap_read(priv->map, ASPEED_MCTP_INT_STS, &mctp_int_sts);
++		if (mctp_int_sts & RX_CMD_RECEIVE_INT) {
++			regmap_write(priv->map, ASPEED_MCTP_INT_STS,
++				     mctp_int_sts);
++			tasklet_hi_schedule(&priv->rx.tasklet);
++		}
+ 	}
+ 
+ 	rx_packet = ptr_ring_consume_bh(&client->rx_queue);
+@@ -1614,12 +1621,19 @@ static __poll_t aspeed_mctp_poll(struct file *file,
+ 	struct aspeed_mctp *priv = client->priv;
+ 	struct mctp_channel *rx = &priv->rx;
+ 	u32 mctp_ctrl;
++	u32 mctp_int_sts;
+ 
+ 	if (priv->miss_mctp_int) {
+ 		regmap_read(priv->map, ASPEED_MCTP_CTRL, &mctp_ctrl);
+ 		if (!(mctp_ctrl & RX_CMD_READY))
+ 			rx->stopped = true;
+-		tasklet_hi_schedule(&priv->rx.tasklet);
++		/* Polling the RX_CMD_RECEIVE_INT to ensure rx_tasklet can find the data */
++		regmap_read(priv->map, ASPEED_MCTP_INT_STS, &mctp_int_sts);
++		if (mctp_int_sts & RX_CMD_RECEIVE_INT) {
++			regmap_write(priv->map, ASPEED_MCTP_INT_STS,
++				     mctp_int_sts);
++			tasklet_hi_schedule(&priv->rx.tasklet);
++		}
+ 	}
+ 
+ 	poll_wait(file, &client->wait_queue, pt);
+-- 
+2.25.1
+
