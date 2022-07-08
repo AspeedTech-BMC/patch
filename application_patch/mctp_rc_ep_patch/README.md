@@ -4,15 +4,15 @@
 ## Software patch
 - Pleas apply the patch to your repo.
   - kernel 5.4:
-        ```
-        git am common/*.patch
-        git am linux-5.4/*.patch
-        ```
+  ```
+  git am common/*.patch
+  git am linux-5.4/*.patch
+  ```
   - kernel 5.15:
-        ```
-        git am common/*.patch
-        git am linux-5.15/*.patch
-        ``` 
+  ```
+  git am common/*.patch
+  git am linux-5.15/*.patch
+  ``` 
 ## Modify the dts to match the GPIO selected by the board
 ```
 // file path: arch/arm/boot/dts/aspeed-ast2600-evb.dts
