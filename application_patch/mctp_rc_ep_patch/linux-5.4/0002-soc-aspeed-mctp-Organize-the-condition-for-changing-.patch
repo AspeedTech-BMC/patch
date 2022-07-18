@@ -1,0 +1,52 @@
+From 78dfc6b327625b7cd02b096b2b1f67be4e8570e7 Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Wed, 6 Jul 2022 18:13:21 +0800
+Subject: [PATCH 2/6] soc: aspeed: mctp: Organize the condition for changing
+ RX_BUF_SIZE
+
+The RX_BUF_SIZE should be reduce in the condition below:
+1. Ast2600A3
+2. After received the PCIE Perst or driver first probe (rx_warmup)
+3. The packet isn't stored in the 0th buffer address.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: I2eba6546213c93aef10e9add3e64c0f3595a3523
+---
+ drivers/soc/aspeed/aspeed-mctp.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/soc/aspeed/aspeed-mctp.c b/drivers/soc/aspeed/aspeed-mctp.c
+index 6e93aa98b770..eef81a93790a 100644
+--- a/drivers/soc/aspeed/aspeed-mctp.c
++++ b/drivers/soc/aspeed/aspeed-mctp.c
+@@ -762,19 +762,18 @@ static void aspeed_mctp_rx_tasklet(unsigned long data)
+ 			} while (!*hdr && tmp_wr_ptr != rx->wr_ptr);
+ 
+ 			if (tmp_wr_ptr != rx->wr_ptr) {
+-				dev_dbg(priv->dev, "Runaway RX packet found %d -> %d\n",
++				dev_warn(priv->dev, "Runaway RX packet found %d -> %d\n",
+ 					rx->wr_ptr, tmp_wr_ptr);
+ 				residual_cmds = abs(tmp_wr_ptr - rx->wr_ptr);
+ 				rx->wr_ptr = tmp_wr_ptr;
+-			}
+-			if (!priv->rx_runaway_wa.enable && priv->rx_warmup &&
+-			    priv->rx_runaway_wa.first_loop)
+-				regmap_write(priv->map,
+-						ASPEED_MCTP_RX_BUF_SIZE,
+-						rx->buffer_count -
+-							residual_cmds);
+-			if (hdr)
++				if (!priv->rx_runaway_wa.enable &&
++				    priv->rx_warmup)
++					regmap_write(priv->map,
++						     ASPEED_MCTP_RX_BUF_SIZE,
++						     rx->buffer_count -
++							     residual_cmds);
+ 				priv->rx_warmup = false;
++			}
+ 		}
+ 
+ 		if (priv->rx_runaway_wa.packet_counter > priv->rx_packet_count &&
+-- 
+2.25.1
+

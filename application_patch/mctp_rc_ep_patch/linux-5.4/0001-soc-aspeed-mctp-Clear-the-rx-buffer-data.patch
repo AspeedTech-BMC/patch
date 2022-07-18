@@ -1,0 +1,40 @@
+From 2a87fc63f717e04b329f5425679999156825d237 Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Tue, 5 Jul 2022 16:51:20 +0800
+Subject: [PATCH 1/6] soc: aspeed: mctp: Clear the rx buffer data.
+
+The rx buffer data should be cleared when we enter the PCIe perst
+interrupt. In special cases, the rx buffer may contain some packets which
+where received when perst low is detected.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: Ic9a758be1c3da6e72f06e0c2263285ad54d706cf
+---
+ drivers/soc/aspeed/aspeed-mctp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/soc/aspeed/aspeed-mctp.c b/drivers/soc/aspeed/aspeed-mctp.c
+index 61aa15ab6533..6e93aa98b770 100644
+--- a/drivers/soc/aspeed/aspeed-mctp.c
++++ b/drivers/soc/aspeed/aspeed-mctp.c
+@@ -880,6 +880,7 @@ static void aspeed_mctp_rx_chan_init(struct mctp_channel *rx)
+ 		(struct aspeed_mctp_rx_cmd *)rx->cmd.vaddr;
+ 	u32 data_size = priv->match_data->packet_unit_size;
+ 	u32 hw_rx_count = priv->rx_packet_count;
++	struct mctp_pcie_packet_data *rx_buf = (struct mctp_pcie_packet_data *)rx->data.vaddr;
+ 	int i;
+ 
+ 	if (priv->match_data->vdm_hdr_direct_xfer) {
+@@ -898,6 +899,9 @@ static void aspeed_mctp_rx_chan_init(struct mctp_channel *rx)
+ 			rx_cmd_64++;
+ 		}
+ 	}
++	/* Clear the header of rx data */
++	for (i = 0; i < priv->rx_packet_count; i++)
++		*(u32 *)&rx_buf[i] = 0;
+ 	rx->wr_ptr = 0;
+ 	rx->buffer_count = priv->rx_packet_count;
+ 	if (priv->match_data->fifo_auto_surround) {
+-- 
+2.25.1
+

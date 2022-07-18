@@ -5,23 +5,27 @@
 - Pleas apply the patch to your repo.
   - kernel 5.4:
   ```
-  git am common/*.patch
   git am linux-5.4/*.patch
   ```
   - kernel 5.15:
   ```
-  git am common/*.patch
   git am linux-5.15/*.patch
   ``` 
 ## Modify the dts to match the GPIO selected by the board
 ```
 // file path: arch/arm/boot/dts/aspeed-ast2600-evb.dts
+&pciecfg {
+        // The GPIO as the PERST# of PCIe RC
+        pcei1-perst-gpios = <&gpio0 ASPEED_GPIO(B, 1) GPIO_ACTIVE_HIGH>;
+            ...
+};
+
 &pcie1 {
-      // The GPIO used for monitoring PERST# from the host
-      perst-ep-in-gpios = <&gpio0 ASPEED_GPIO(B, 0) GPIO_ACTIVE_HIGH>;
-      // The GPIO used output the PERST# from the BMC PCIe RC
-      perst-rc-out-gpios = <&gpio0 ASPEED_GPIO(B, 1) GPIO_ACTIVE_HIGH>;
- 	status = "okay";
+        // The GPIO used for monitoring PERST# from the host
+        perst-ep-in-gpios = <&gpio0 ASPEED_GPIO(B, 0) GPIO_ACTIVE_HIGH>;
+        // The GPIO as the PERST# of PCIe RC
+        perst-rc-out-gpios = <&gpio0 ASPEED_GPIO(B, 1) GPIO_ACTIVE_HIGH>;
+        ...
 };
 ```
 ## The Side-effect of this software patch
