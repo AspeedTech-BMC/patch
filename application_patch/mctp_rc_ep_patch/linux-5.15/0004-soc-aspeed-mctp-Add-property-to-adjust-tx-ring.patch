@@ -1,7 +1,7 @@
 From fa618dfc25328288a9b2b5aabf50466a6e9d93fe Mon Sep 17 00:00:00 2001
 From: Billy Tsai <billy_tsai@aspeedtech.com>
 Date: Mon, 11 Jul 2022 17:51:42 +0800
-Subject: [PATCH 4/6] soc: aspeed: mctp: Add property to adjust tx ring.
+Subject: [PATCH 04/10] soc: aspeed: mctp: Add property to adjust tx ring.
 
 Increasing aspeed,tx-ring-count can avoid the overflow of the ring buffer
 caused by the client process send burst packets.

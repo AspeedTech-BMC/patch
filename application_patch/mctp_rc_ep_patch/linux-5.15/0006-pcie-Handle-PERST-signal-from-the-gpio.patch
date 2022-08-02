@@ -1,7 +1,7 @@
 From 99a05d63c6d75cf8942434053b6771c34dd4d798 Mon Sep 17 00:00:00 2001
 From: ryan_chen <ryan_chen@aspeedtech.com>
 Date: Mon, 7 Mar 2022 10:10:09 +0800
-Subject: [PATCH 6/6] pcie: Handle PERST signal from the gpio.
+Subject: [PATCH 06/10] pcie: Handle PERST signal from the gpio.
 
 This patch will use the two gpio to act as EP-PERST(input) and
 RC-PERST(output).

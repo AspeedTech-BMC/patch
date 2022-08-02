@@ -1,0 +1,30 @@
+From 88e46a671f45700cc182e3cf3945cc557b77fedb Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Thu, 28 Jul 2022 13:21:43 +0800
+Subject: [PATCH 08/10] pcie: aspeed: Increase the delay time for PERST.
+
+This patch is used to meet the PCIe spec. that PERST should be held low at
+least 100ms.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: I6c5d0921a51aa3c177322e75b8ae55f70d1ec02d
+---
+ drivers/pci/controller/pcie-aspeed.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pci/controller/pcie-aspeed.c b/drivers/pci/controller/pcie-aspeed.c
+index 1e0d7241c54a..73f74a66eb95 100644
+--- a/drivers/pci/controller/pcie-aspeed.c
++++ b/drivers/pci/controller/pcie-aspeed.c
+@@ -907,7 +907,7 @@ static void aspeed_pcie_reset_work(struct work_struct *work)
+ 	if (pcie->perst_rc_out)
+ 		gpiod_set_value(pcie->perst_rc_out, 0);
+ 	reset_control_assert(pcie->phy_rst);
+-	ndelay(300);
++	mdelay(100);
+ 	if (pcie->perst_rc_out)
+ 		gpiod_set_value(pcie->perst_rc_out, 1);
+ 	reset_control_deassert(pcie->phy_rst);
+-- 
+2.25.1
+

@@ -1,7 +1,7 @@
 From 119b79cc89cf6ad0b632994a12f5dc7c6a385553 Mon Sep 17 00:00:00 2001
 From: Billy Tsai <billy_tsai@aspeedtech.com>
 Date: Mon, 24 Jan 2022 18:11:31 +0800
-Subject: [PATCH 5/6] soc: aspeed: mctp: Allows mctp0 and mctp1 to coexist
+Subject: [PATCH 05/10] soc: aspeed: mctp: Allows mctp0 and mctp1 to coexist
 
 This patch allows mctp0 and mctp1 to coexist.
 The device node name for mctp over pcie0(rc/ep) is aspeed-mctp and the

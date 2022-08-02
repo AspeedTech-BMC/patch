@@ -1,7 +1,7 @@
 From 78dfc6b327625b7cd02b096b2b1f67be4e8570e7 Mon Sep 17 00:00:00 2001
 From: Billy Tsai <billy_tsai@aspeedtech.com>
 Date: Wed, 6 Jul 2022 18:13:21 +0800
-Subject: [PATCH 2/6] soc: aspeed: mctp: Organize the condition for changing
+Subject: [PATCH 02/10] soc: aspeed: mctp: Organize the condition for changing
  RX_BUF_SIZE
 
 The RX_BUF_SIZE should be reduce in the condition below:

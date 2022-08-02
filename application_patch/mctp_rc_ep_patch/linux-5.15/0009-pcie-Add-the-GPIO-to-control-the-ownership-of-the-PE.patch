@@ -1,0 +1,51 @@
+From 4a463e0852c67dfd31dd10c655fa434609182448 Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Tue, 26 Jul 2022 11:44:08 +0800
+Subject: [PATCH 09/10] pcie: Add the GPIO to control the ownership of the
+ PERST.
+
+This patch add the GPIO to change the extenal mux which is used to
+change the signal owner of the PCIe EP PERST#. Before the GPIOx can
+handle the PERST# the owner of the signal should be the host to avoid
+the BMC PCIe EP missing the perst reset. After that the owner of the
+signal should be the SSPRST# to avoid host power on/off affecting the
+function of the MCTP over PCIe RC port.
+The dts setting for this GPIO sholud like below:
+&pcie1 {
+    ...
+    perst-owner-gpios = <&gpio0 ASPEED_GPIO(B, 2)
+			(GPIO_ACTIVE_HIGH | GPIO_TRANSITORY)>;
+    ...
+};
+GPIO_TRANSITORY is used to auto clear the gpio setting after WDT reset.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: I21af166100b19795884c8f9f60c49d04c97bad94
+---
+ drivers/pci/controller/pcie-aspeed.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/pci/controller/pcie-aspeed.c b/drivers/pci/controller/pcie-aspeed.c
+index 81e0a9f42e7a..e83b74ec8191 100644
+--- a/drivers/pci/controller/pcie-aspeed.c
++++ b/drivers/pci/controller/pcie-aspeed.c
+@@ -112,6 +112,7 @@ struct aspeed_pcie {
+ 	int hotplug_event;
+ 	struct gpio_desc *perst_ep_in;
+ 	struct gpio_desc *perst_rc_out;
++	struct gpio_desc *perst_owner;
+ 	struct delayed_work rst_dwork;
+ 	DECLARE_BITMAP(msi_irq_in_use, MAX_MSI_HOST_IRQS);
+ };
+@@ -936,6 +937,8 @@ static int aspeed_pcie_probe(struct platform_device *pdev)
+ 			INIT_DELAYED_WORK(&pcie->rst_dwork,
+ 					  aspeed_pcie_reset_work);
+ 		}
++		pcie->perst_owner = devm_gpiod_get_optional(
++			pcie->dev, "perst-owner", GPIOD_OUT_HIGH);
+ 	}
+ 
+ 	return pci_host_probe(host);
+-- 
+2.25.1
+

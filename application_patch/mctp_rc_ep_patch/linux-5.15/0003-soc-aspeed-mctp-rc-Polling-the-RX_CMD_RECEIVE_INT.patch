@@ -1,7 +1,7 @@
 From 391dc4e23caaa957c2e0e6ee36c20820cc88d0af Mon Sep 17 00:00:00 2001
 From: Billy Tsai <billy_tsai@aspeedtech.com>
 Date: Tue, 5 Jul 2022 17:03:52 +0800
-Subject: [PATCH 3/6] soc: aspeed: mctp: rc: Polling the RX_CMD_RECEIVE_INT.
+Subject: [PATCH 03/10] soc: aspeed: mctp: rc: Polling the RX_CMD_RECEIVE_INT.
 
 Polling the RX_CMD_RECEIVE_INT to ensure rx_tasklet can find the data.
 

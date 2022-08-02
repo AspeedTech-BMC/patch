@@ -1,0 +1,28 @@
+From 60ee99a4c63907323103726ccef6787707841d8e Mon Sep 17 00:00:00 2001
+From: ryan_chen <ryan_chen@aspeedtech.com>
+Date: Fri, 22 Jul 2022 15:33:49 +0800
+Subject: [PATCH 07/10] pcie:aspeed extend delay 1ms->5ms for more compatible
+
+Signed-off-by: ryan_chen <ryan_chen@aspeedtech.com>
+Change-Id: I7e88b914c85d701f7367841da9e5b4fcff78d3d7
+(cherry picked from commit 55c535497fe4d25b88c97ee1afc0207e067681f4)
+---
+ drivers/pci/controller/aspeed_pciecfg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pci/controller/aspeed_pciecfg.c b/drivers/pci/controller/aspeed_pciecfg.c
+index 1663708b3910..7e053d26034c 100644
+--- a/drivers/pci/controller/aspeed_pciecfg.c
++++ b/drivers/pci/controller/aspeed_pciecfg.c
+@@ -50,7 +50,7 @@ static void aspeed_pciecfg_init(struct aspeed_pciecfg *pciecfg)
+ 		reset_control_assert(pciecfg->rc_high_rst);
+ 	}
+ 
+-	mdelay(1);
++	mdelay(5);
+ 	reset_control_deassert(pciecfg->rst);
+ 
+ 	//workaround : Send vender define message for avoid when PCIE RESET send unknown message out
+-- 
+2.25.1
+
