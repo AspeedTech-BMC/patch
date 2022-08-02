@@ -25,6 +25,8 @@
         perst-ep-in-gpios = <&gpio0 ASPEED_GPIO(B, 0) GPIO_ACTIVE_HIGH>;
         // The GPIO as the PERST# of PCIe RC
         perst-rc-out-gpios = <&gpio0 ASPEED_GPIO(B, 1) GPIO_ACTIVE_HIGH>;
+        // The GPIO used to change the control owner of PERST#, 0: Host 1: BMC software
+        perst-owner-gpios = <&gpio0 ASPEED_GPIO(B, 2) (GPIO_ACTIVE_HIGH | GPIO_TRANSITORY)>;
         ...
 };
 ```
