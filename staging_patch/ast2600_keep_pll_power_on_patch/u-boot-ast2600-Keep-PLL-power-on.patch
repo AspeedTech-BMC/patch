@@ -1,0 +1,49 @@
+From e9f7e664bae796a7b5b9bb2b1e079ae598a1215b Mon Sep 17 00:00:00 2001
+From: Dylan Hung <dylan_hung@aspeedtech.com>
+Date: Wed, 1 Feb 2023 15:21:22 +0800
+Subject: [PATCH] aspeed: ast2600: Keep PLL power on
+
+According to the PLL vendor, we should keep PLL power on so don't toggle
+the power down bit in PLL initialization.
+
+Signed-off-by: Dylan Hung <dylan_hung@aspeedtech.com>
+Change-Id: I6dbba8bbb0c51a569a2ced6fdd3d69645b9f4391
+---
+ drivers/clk/aspeed/clk_ast2600.c   | 2 +-
+ drivers/ram/aspeed/sdram_ast2600.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/aspeed/clk_ast2600.c b/drivers/clk/aspeed/clk_ast2600.c
+index 0800e1e63be1..d4fda1b23130 100644
+--- a/drivers/clk/aspeed/clk_ast2600.c
++++ b/drivers/clk/aspeed/clk_ast2600.c
+@@ -758,7 +758,7 @@ static u32 ast2600_configure_pll(struct ast2600_scu *scu,
+ 	}
+ 
+ 	p_cfg->reg.b.bypass = 0;
+-	p_cfg->reg.b.off = 1;
++	p_cfg->reg.b.off = 0;
+ 	p_cfg->reg.b.reset = 1;
+ 
+ 	reg = readl(addr);
+diff --git a/drivers/ram/aspeed/sdram_ast2600.c b/drivers/ram/aspeed/sdram_ast2600.c
+index 97ca6a44702d..6388b5b26180 100644
+--- a/drivers/ram/aspeed/sdram_ast2600.c
++++ b/drivers/ram/aspeed/sdram_ast2600.c
+@@ -928,11 +928,11 @@ static int ast2600_sdrammc_probe(struct udevice *dev)
+ #ifdef AST2600_SDRAMMC_MANUAL_CLK
+ 	reg = readl(priv->scu + AST_SCU_MPLL);
+ 	reg &= ~(BIT(24) | GENMASK(22, 0));
+-	reg |= (BIT(25) | BIT(23) | SCU_MPLL_FREQ_CFG);
++	reg |= (BIT(25) | SCU_MPLL_FREQ_CFG);
+ 	writel(reg, priv->scu + AST_SCU_MPLL);
+ 	writel(SCU_MPLL_EXT_CFG, priv->scu + AST_SCU_MPLL_EXT);
+ 	udelay(100);
+-	reg &= ~(BIT(25) | BIT(23));
++	reg &= ~BIT(25);
+ 	writel(reg, priv->scu + AST_SCU_MPLL);
+ 	while (0 == (readl(priv->scu + AST_SCU_MPLL_EXT) & BIT(31)))
+ 		;
+-- 
+2.25.1
+
