@@ -1,0 +1,31 @@
+From 1f02593ce7fa696e99e3006b95c7666e52e8bae7 Mon Sep 17 00:00:00 2001
+From: Billy Tsai <billy_tsai@aspeedtech.com>
+Date: Tue, 3 Jan 2023 17:11:05 +0800
+Subject: [PATCH] i3c: ast2600: Transfer error interrupt has the response data.
+
+Transfer error interrupt will generate one response data, so append this
+condition to handle the response data for the xfer error.
+
+Signed-off-by: Billy Tsai <billy_tsai@aspeedtech.com>
+Change-Id: I234c846f462e0f4d3c31c4308e8090c674bfe679
+---
+ drivers/i3c/master/ast2600-i3c-master.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/i3c/master/ast2600-i3c-master.c b/drivers/i3c/master/ast2600-i3c-master.c
+index 7f3531528c40..9fdeb4c15fdb 100644
+--- a/drivers/i3c/master/ast2600-i3c-master.c
++++ b/drivers/i3c/master/ast2600-i3c-master.c
+@@ -2022,7 +2022,8 @@ static irqreturn_t aspeed_i3c_master_irq_handler(int irq, void *dev_id)
+ 		if (status & INTR_CCC_UPDATED_STAT)
+ 			aspeed_i3c_slave_event_handler(master);
+ 	} else {
+-		if (status & INTR_RESP_READY_STAT) {
++		if (status & INTR_RESP_READY_STAT ||
++		    status & INTR_TRANSFER_ERR_STAT) {
+ 			spin_lock(&master->xferqueue.lock);
+ 			aspeed_i3c_master_end_xfer_locked(master, status);
+ 			if (status & INTR_TRANSFER_ERR_STAT)
+-- 
+2.25.1
+
