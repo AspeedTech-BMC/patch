@@ -1,0 +1,66 @@
+From a311e3c8dc5e9c8c248089bc6841673b31f996d4 Mon Sep 17 00:00:00 2001
+From: Chia-Wei Wang <chiawei_wang@aspeedtech.com>
+Date: Mon, 3 Jul 2023 15:10:25 +0800
+Subject: [PATCH] soc/aspeed: pcc: SW workaround for AP note A2600-xx
+
+A SW workaround to prevent PCC from responding erroneous eSPI
+response (Non-Fatal-Error, NFE) to eSPI master on debug code
+snooping.
+
+Note that it is for AST2600 A3 only.
+
+Signed-off-by: Chia-Wei Wang <chiawei_wang@aspeedtech.com>
+Change-Id: Idb90a6e9bbca0f5234f1c7bacd14ad961a35fade
+---
+ arch/arm/boot/dts/aspeed-ast2600-evb.dts |  3 +--
+ drivers/soc/aspeed/aspeed-lpc-pcc.c      | 20 ++++++++++++++++++++
+ 2 files changed, 21 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/aspeed-ast2600-evb.dts b/arch/arm/boot/dts/aspeed-ast2600-evb.dts
+index 5bdcc2be0d9c..89a58a55e297 100644
+--- a/arch/arm/boot/dts/aspeed-ast2600-evb.dts
++++ b/arch/arm/boot/dts/aspeed-ast2600-evb.dts
+@@ -795,8 +795,7 @@ &espi {
+ };
+ 
+ &lpc_snoop {
+-	status = "okay";
+-	snoop-ports = <0x80>;
++	status = "disabled";
+ };
+ 
+ &ibt {
+diff --git a/drivers/soc/aspeed/aspeed-lpc-pcc.c b/drivers/soc/aspeed/aspeed-lpc-pcc.c
+index 360df00e6850..7a90563544f4 100644
+--- a/drivers/soc/aspeed/aspeed-lpc-pcc.c
++++ b/drivers/soc/aspeed/aspeed-lpc-pcc.c
+@@ -217,6 +217,26 @@ static irqreturn_t aspeed_pcc_isr(int irq, void *arg)
+ 
+ static void aspeed_pcc_enable(struct aspeed_pcc *pcc, struct device *dev)
+ {
++	/*
++	 * AST2600 A3 only
++	 *
++	 * SW workaround to prevent generating Non-Fatal-Error (NFE)
++	 * eSPI response when PCC is used for port I/O byte snooping
++	 * over eSPI.
++	 */
++#define SNPWADR	0x90
++#define HICR6	0x84
++#define HICRB	0x100
++
++	/* set SNPWADR of snoop device */
++	regmap_write(pcc->regmap, SNPWADR, pcc->port | ((pcc->port + 2) << 16));
++
++	/* set HICRB[15:14]=11b to enable ACCEPT response for SNPWADR */
++	regmap_update_bits(pcc->regmap, HICRB, BIT(14) | BIT(15), BIT(14) | BIT(15));
++
++	/* set HICR6[19] to extend SNPWADR to 2x range */
++	regmap_update_bits(pcc->regmap, HICR6, BIT(19), BIT(19));
++
+ 	/* record mode */
+ 	regmap_update_bits(pcc->regmap, PCCR0,
+ 			PCCR0_MODE_SEL_MASK,
+-- 
+2.25.1
+
